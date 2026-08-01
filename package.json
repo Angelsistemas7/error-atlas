@@ -2,6 +2,9 @@
   "name": "error-atlas",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "error-atlas": "./bin/error-atlas.js"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
