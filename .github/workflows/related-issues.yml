@@ -1,0 +1,43 @@
+name: Find related GitHub issues
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # cada lunes 6am UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  find-related-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Buscar issues/PRs relacionados de la última semana
+        run: node scripts/find-related-issues.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Abrir PR con las fuentes nuevas encontradas (si hay)
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: link newly found related GitHub issues"
+          title: "chore: nuevas fuentes relacionadas encontradas esta semana"
+          body: |
+            PR automático del job semanal `find-related-issues`.
+
+            Agrega a `sources` en `errors.json` los issues/PRs reales encontrados
+            en los repos de referencia en los últimos 7 días — título y link
+            exactos de la API de GitHub, sin resumen generado.
+
+            **Revisar manualmente antes de mergear.** Este workflow nunca
+            automergea: solo abre el PR para que una persona confirme que la
+            fuente encontrada de verdad aplica al error antes de publicarla.
+          branch: bot/related-issues-update
+          delete-branch: true
