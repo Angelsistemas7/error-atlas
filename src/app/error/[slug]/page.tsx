@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getAllErrors, getErrorBySlug } from "@/lib/errors";
+import GithubIssuesSection from "@/components/GithubIssuesSection";
 
 export function generateStaticParams() {
   return getAllErrors().map((error) => ({ slug: error.slug }));
@@ -67,6 +69,19 @@ export default async function ErrorDetailPage({
           ))}
         </ol>
       </section>
+
+      <Suspense
+        fallback={
+          <section className="mt-10">
+            <h2 className="text-lg font-semibold mb-3">
+              Issues y PRs relacionados en GitHub
+            </h2>
+            <p className="text-sm text-neutral-400">Buscando...</p>
+          </section>
+        }
+      >
+        <GithubIssuesSection error={error} />
+      </Suspense>
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold mb-3">Tags</h2>
