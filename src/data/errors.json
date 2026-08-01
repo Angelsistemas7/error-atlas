@@ -228,5 +228,196 @@
     ],
     "affected": ["Python 3", "pip", "virtualenv/venv"],
     "tags": ["python", "imports", "dependencies"]
+  },
+  {
+    "slug": "javascript-heap-out-of-memory",
+    "title": "FATAL ERROR: Ineffective mark-compacts near heap limit — JavaScript heap out of memory",
+    "summary": "El proceso de Node.js agotó la memoria que V8 tiene asignada por defecto para el heap.",
+    "description": "V8 (el motor de JS de Node) tiene un límite de heap por defecto (históricamente ~1.5-2GB en builds de 64 bits, varía por versión). Cuando el proceso necesita más que eso — muy común en builds grandes de webpack/TypeScript, o procesando datasets grandes en memoria — el garbage collector no logra liberar suficiente espacio y el proceso muere.",
+    "causes": [
+      "Un build de producción (webpack, tsc, Next.js) sobre un proyecto grande, especialmente en CI con menos RAM disponible que en la máquina local.",
+      "Cargar un dataset o archivo completo en memoria en vez de procesarlo por streaming.",
+      "Una fuga de memoria real: referencias que nunca se liberan (listeners no removidos, closures que retienen objetos grandes, caches sin límite de tamaño).",
+      "Varios procesos de Node corriendo en paralelo en un entorno con RAM limitada (contenedores CI con memoria acotada)."
+    ],
+    "solutions": [
+      { "title": "Aumentar el límite del heap explícitamente", "detail": "NODE_OPTIONS=--max-old-space-size=4096 (en MB) antes del comando — el fix inmediato, no soluciona una fuga real si la hay." },
+      { "title": "Procesar por streams en vez de cargar todo en memoria", "detail": "Para archivos/datasets grandes, usar streams de Node en vez de leer todo con fs.readFileSync o similar." },
+      { "title": "Perfilar con --inspect y el heap snapshot de Chrome DevTools", "detail": "Si el aumento de memoria no resuelve el problema o solo lo pospone, confirma si hay una fuga real antes de seguir subiendo el límite." },
+      { "title": "Revisar la RAM disponible en CI", "detail": "Muchos runners de CI tienen menos memoria que una laptop de desarrollo — el mismo build que funciona local puede fallar ahí." }
+    ],
+    "affected": ["Node.js", "webpack", "TypeScript", "CI/CD"],
+    "tags": ["nodejs", "memory", "build", "ci"]
+  },
+  {
+    "slug": "uncaught-in-promise-failed-to-fetch",
+    "title": "Uncaught (in promise) TypeError: Failed to fetch",
+    "summary": "El navegador no pudo completar la petición de red, por una razón que fetch() no distingue en el mensaje.",
+    "description": "fetch() lanza este error genérico cuando la petición nunca llega a tener una respuesta HTTP — a diferencia de un 4xx/5xx (que sí es una respuesta válida), esto es una falla de red o de política del navegador antes de que exista respuesta.",
+    "causes": [
+      "Bloqueo por CORS (el caso más común — ver la entrada específica de CORS para el detalle).",
+      "El servidor está caído, o la URL apunta a un host/puerto que no responde.",
+      "Contenido mixto: página servida por HTTPS intentando llamar a una URL HTTP.",
+      "Un adblocker o extensión del navegador bloqueando la petición.",
+      "El usuario perdió conexión a internet a mitad de la petición."
+    ],
+    "solutions": [
+      { "title": "Revisar la pestaña Network del navegador, no solo la consola", "detail": "El mensaje de consola es genérico; la pestaña Network muestra si la petición ni siquiera salió, si fue bloqueada, o si fue un error CORS específico." },
+      { "title": "Confirmar HTTPS en ambos extremos", "detail": "Si la página es HTTPS, la API llamada también debe serlo — los navegadores bloquean contenido mixto silenciosamente en muchos casos." },
+      { "title": "Probar en una ventana de incógnito sin extensiones", "detail": "Descarta adblockers/extensiones como causa antes de seguir debuggeando el código." },
+      { "title": "Envolver en try/catch y loguear más contexto", "detail": "Ya que el mensaje del navegador no distingue la causa, agregar tu propio logging (URL, momento, estado de conexión) ayuda a diferenciar los casos en producción." }
+    ],
+    "affected": ["JavaScript", "fetch API", "navegadores"],
+    "tags": ["javascript", "networking", "cors"]
+  },
+  {
+    "slug": "git-refusing-to-merge-unrelated-histories",
+    "title": "fatal: refusing to merge unrelated histories",
+    "summary": "Git detectó que las dos ramas no comparten ningún commit ancestro común.",
+    "description": "Desde Git 2.9, un merge/pull que intenta combinar dos historiales sin ningún commit en común se rechaza por defecto — para evitar fusionar accidentalmente dos repositorios que nunca estuvieron relacionados. Es una salvaguarda, no un bug.",
+    "causes": [
+      "Se inicializó un repo local con git init y luego se intentó git pull de un remoto que ya tenía su propio historial (el caso más común: crear el repo en GitHub con un README, y también inicializarlo local por separado).",
+      "Se hizo un git clone --depth 1 (shallow) en algún punto y luego se intenta operar como si tuviera el historial completo.",
+      "Dos repositorios genuinamente distintos que se están combinando a propósito (migración, merge de proyectos)."
+    ],
+    "solutions": [
+      { "title": "--allow-unrelated-histories, solo si es intencional", "detail": "git pull origin main --allow-unrelated-histories — resuelve el caso más común (README creado en GitHub) sin perder ningún commit de ningún lado." },
+      { "title": "Revisar qué rama tiene el historial que realmente quieres conservar", "detail": "Si el merge no es intencional, puede ser más simple eliminar el historial local incorrecto y clonar de nuevo en vez de forzar el merge." },
+      { "title": "Convertir de shallow a completo si aplica", "detail": "git fetch --unshallow si el problema viene de un clone superficial." }
+    ],
+    "affected": ["Git 2.9+"],
+    "tags": ["git", "version-control"]
+  },
+  {
+    "slug": "docker-cannot-connect-to-daemon",
+    "title": "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?",
+    "summary": "El cliente de Docker no pudo comunicarse con el daemon (dockerd).",
+    "description": "El comando docker es solo un cliente; toda la ejecución real la hace dockerd (el daemon), normalmente escuchando en un socket Unix local. Este error significa que el cliente no encontró un daemon respondiendo en ese socket.",
+    "causes": [
+      "Docker Desktop / el servicio dockerd no está corriendo.",
+      "El usuario actual no tiene permisos sobre /var/run/docker.sock (típico en Linux si el usuario no está en el grupo docker).",
+      "Docker Desktop sigue iniciando (en Windows/Mac, el daemon corre dentro de una VM ligera que tarda unos segundos en estar lista tras el arranque).",
+      "La variable DOCKER_HOST apunta a un socket/host distinto al que realmente está corriendo."
+    ],
+    "solutions": [
+      { "title": "Confirmar que Docker Desktop / dockerd está corriendo", "detail": "En Windows/Mac, revisar el ícono de Docker Desktop; en Linux, systemctl status docker." },
+      { "title": "Agregar el usuario al grupo docker (Linux)", "detail": "sudo usermod -aG docker $USER, y volver a iniciar sesión para que el cambio de grupo tome efecto." },
+      { "title": "Esperar a que Docker Desktop termine de iniciar", "detail": "En Windows/Mac, correr un comando docker justo después de abrir la app suele fallar — dockerd tarda unos segundos más en estar listo." },
+      { "title": "Revisar DOCKER_HOST", "detail": "echo $DOCKER_HOST — si apunta a un contexto remoto por error, unset o cambiar el contexto activo con docker context use." }
+    ],
+    "affected": ["Docker", "Docker Desktop", "Linux", "Windows", "macOS"],
+    "tags": ["docker", "infra"]
+  },
+  {
+    "slug": "python-circular-import",
+    "title": "ImportError: cannot import name 'X' from partially initialized module 'Y' (most likely due to a circular import)",
+    "summary": "Dos (o más) módulos de Python se importan entre sí, y uno de ellos todavía no terminó de inicializarse cuando el otro intenta usarlo.",
+    "description": "Python ejecuta un módulo de arriba a abajo la primera vez que se importa. Si durante esa ejecución el módulo A importa al módulo B, y B a su vez intenta importar algo de A que todavía no se definió (porque A no ha terminado de ejecutarse), Python lanza este error — a diferencia de otros lenguajes, no hay una fase de resolución separada que lo evite automáticamente.",
+    "causes": [
+      "Dos módulos que se necesitan mutuamente al nivel superior del archivo (imports fuera de funciones/clases).",
+      "Un paquete grande donde __init__.py importa de submódulos que a su vez importan del paquete raíz.",
+      "Reestructuración de código que introdujo una dependencia mutua sin que sea obvio al ver un solo archivo."
+    ],
+    "solutions": [
+      { "title": "Mover el import dentro de la función que lo usa", "detail": "Un import local (dentro de la función, no al nivel superior del módulo) rompe el ciclo porque se resuelve en tiempo de llamada, no de carga del módulo." },
+      { "title": "Reestructurar la dependencia compartida a un tercer módulo", "detail": "Si A y B necesitan lo mismo, moverlo a un módulo C que ambos importan, en vez de que se importen entre sí." },
+      { "title": "Revisar el orden real de imports con python -X importtime", "detail": "Ayuda a visualizar la cadena exacta de imports que produce el ciclo, en vez de adivinar." }
+    ],
+    "affected": ["Python 3"],
+    "tags": ["python", "imports"]
+  },
+  {
+    "slug": "react-state-update-unmounted-component",
+    "title": "Warning: Can't perform a React state update on an unmounted component",
+    "summary": "Un setState (o su equivalente de un hook) se ejecutó después de que el componente ya se desmontó.",
+    "description": "Ocurre cuando una operación asíncrona (fetch, timeout, subscription) que actualiza el estado del componente termina después de que el componente ya no está en el árbol — típicamente porque el usuario navegó a otra pantalla antes de que la petición terminara. React advierte porque esa actualización no tiene ningún efecto útil y puede indicar una fuga de memoria.",
+    "causes": [
+      "Un fetch/async iniciado en un efecto o handler, sin cancelar ni verificar si el componente sigue montado cuando resuelve.",
+      "Un setTimeout/setInterval que actualiza estado sin limpiarse en el cleanup del efecto.",
+      "Una suscripción (WebSocket, event listener) sin cleanup en el return de useEffect."
+    ],
+    "solutions": [
+      { "title": "Cleanup con un flag o AbortController en useEffect", "detail": "Guardar un booleano `cancelled` (o usar AbortController con fetch) y no llamar a setState si el efecto ya se limpió." },
+      { "title": "Cancelar timers/intervalos en el cleanup", "detail": "return () => clearTimeout(id) / clearInterval(id) dentro de useEffect." },
+      { "title": "Remover listeners/suscripciones en el cleanup", "detail": "Toda suscripción creada en un efecto necesita su contraparte de limpieza en el return." }
+    ],
+    "affected": ["React 16-18"],
+    "tags": ["react", "memory", "async"]
+  },
+  {
+    "slug": "docker-port-already-allocated",
+    "title": "Bind for 0.0.0.0:PORT failed: port is already allocated",
+    "summary": "Otro contenedor (o proceso del host) ya está publicando ese puerto.",
+    "description": "Variante del clásico 'puerto en uso', pero a nivel de Docker: el daemon no puede publicar el puerto porque ya hay un contenedor (a veces uno que ni sabías que seguía corriendo) usándolo.",
+    "causes": [
+      "Un contenedor anterior del mismo proyecto sigue corriendo (docker compose down no se ejecutó antes de volver a levantar).",
+      "Otro proyecto/contenedor completamente distinto está usando el mismo puerto por defecto.",
+      "Un contenedor 'huérfano' que quedó de una configuración de docker-compose.yml anterior con un nombre de servicio distinto."
+    ],
+    "solutions": [
+      { "title": "docker ps para ver qué lo está usando", "detail": "Confirma si es el mismo proyecto (docker compose down primero) u otro contenedor distinto que hay que detener o remapear." },
+      { "title": "docker compose down antes de volver a levantar", "detail": "En vez de solo up de nuevo, especialmente tras cambiar el archivo docker-compose.yml." },
+      { "title": "Remapear el puerto del host en docker-compose.yml", "detail": "Si el conflicto es con otro proyecto que también necesitas correr, cambiar el puerto del lado del host (izquierda del ':') sin tocar el puerto interno del contenedor." }
+    ],
+    "affected": ["Docker", "Docker Compose"],
+    "tags": ["docker", "networking"]
+  },
+  {
+    "slug": "nextjs-dynamic-server-usage",
+    "title": "Error: Dynamic server usage: Page couldn't be rendered statically because it used `cookies`",
+    "summary": "Next.js intentó pre-renderizar estáticamente una página que en realidad depende de datos por-request.",
+    "description": "En el App Router, Next.js intenta generar la mayor cantidad de páginas posible como estáticas en build time. Si el código de la página usa una API que solo tiene sentido por request (cookies(), headers(), searchParams sin fallback, una petición sin cache), Next.js no puede completar el prerender estático y lo señala en vez de fallar silenciosamente con datos incorrectos.",
+    "causes": [
+      "Leer cookies() o headers() en una página/layout que Next.js está intentando generar estáticamente.",
+      "Un componente compartido entre páginas estáticas y dinámicas que usa una API dinámica sin que sea obvio desde el punto de entrada.",
+      "Una librería de terceros que internamente lee cookies/headers, arrastrando la página completa a dinámica sin que el código propio lo haga explícito."
+    ],
+    "solutions": [
+      { "title": "Marcar la ruta como dinámica explícitamente", "detail": "export const dynamic = 'force-dynamic' en la página, si realmente necesita ser por-request — esto es correcto, no un workaround, cuando el contenido de verdad depende de cookies/headers." },
+      { "title": "Mover la lectura dinámica a donde realmente se necesita", "detail": "Si solo una parte de la página necesita datos por-request, aislarla en un Server Component hijo en vez de que toda la página herede el comportamiento dinámico." },
+      { "title": "Revisar dependencias de terceros", "detail": "Si el error aparece sin que el código propio use cookies/headers, buscar en las dependencias — una librería de analytics o auth puede estar haciéndolo internamente." }
+    ],
+    "affected": ["Next.js 13+ (App Router)"],
+    "tags": ["nextjs", "react", "ssr"]
+  },
+  {
+    "slug": "prisma-cant-reach-database-server",
+    "title": "PrismaClientInitializationError: Can't reach database server at `host`:`port`",
+    "summary": "Prisma no logró establecer conexión TCP con la base de datos configurada en DATABASE_URL.",
+    "description": "Prisma falla en el primer intento de conexión, antes de ejecutar ninguna query. El mensaje es genérico a propósito (cubre DNS, red, credenciales de conexión, o el servidor caído), así que hay que descartar causas en orden.",
+    "causes": [
+      "La base de datos no está corriendo (muy común en desarrollo: se apagó el contenedor de Postgres/MySQL).",
+      "DATABASE_URL apunta al host/puerto equivocado — típicamente localhost en vez del nombre del servicio dentro de Docker, o viceversa.",
+      "Un firewall/security group bloqueando el puerto en un entorno cloud (RDS, Supabase, etc.).",
+      "SSL requerido por el proveedor pero no especificado en la connection string (?sslmode=require)."
+    ],
+    "solutions": [
+      { "title": "Confirmar que la base de datos está corriendo", "detail": "docker ps si es local, o el dashboard del proveedor si es cloud." },
+      { "title": "Probar la conexión fuera de Prisma primero", "detail": "psql/mysql client directo con la misma DATABASE_URL — aísla si el problema es de red/credenciales o específico de Prisma." },
+      { "title": "Revisar host dentro vs. fuera de Docker", "detail": "Dentro de docker-compose, el host es el nombre del servicio (ej. db), no localhost — localhost dentro de un contenedor se refiere al propio contenedor." },
+      { "title": "Agregar sslmode=require si el proveedor lo exige", "detail": "Común en bases de datos cloud administradas (Supabase, Neon, RDS con SSL forzado)." }
+    ],
+    "affected": ["Prisma", "PostgreSQL", "MySQL", "Docker"],
+    "tags": ["prisma", "database", "backend"]
+  },
+  {
+    "slug": "kubernetes-crashloopbackoff",
+    "title": "CrashLoopBackOff",
+    "summary": "El contenedor de un Pod se está cayendo repetidamente después de arrancar, y Kubernetes está esperando cada vez más entre reintentos.",
+    "description": "No es un error en sí mismo — es el estado que Kubernetes le pone a un Pod cuyo contenedor arranca y termina (con código de salida distinto de 0, o el proceso principal simplemente termina) una y otra vez. El 'backoff' es el tiempo creciente que Kubernetes espera entre cada reintento.",
+    "causes": [
+      "La aplicación crashea al arrancar por un error de configuración (variable de entorno faltante, secret no montado).",
+      "Un healthcheck/liveness probe mal configurado que mata el contenedor antes de que termine de iniciar.",
+      "El proceso principal del contenedor termina solo (ej. un script que corre y sale, en vez de un servidor de larga duración).",
+      "Falta de recursos: el contenedor se mata por OOM (out of memory) si el límite de memoria del Pod es muy bajo para la aplicación real."
+    ],
+    "solutions": [
+      { "title": "kubectl logs --previous", "detail": "Los logs del contenedor que ya murió (no el actual, que puede no tener nada aún) — casi siempre muestra la causa real del crash." },
+      { "title": "kubectl describe pod para ver eventos", "detail": "Muestra si el motivo es OOMKilled, un liveness probe fallido, o un problema de montaje de volumen/secret." },
+      { "title": "Revisar el initialDelaySeconds del liveness probe", "detail": "Si la app tarda en arrancar más de lo que el probe espera, Kubernetes la mata pensando que está colgada, no que sigue iniciando." },
+      { "title": "Confirmar los límites de memoria del Pod", "detail": "Si el evento dice OOMKilled, el resources.limits.memory configurado es menor de lo que la aplicación realmente necesita." }
+    ],
+    "affected": ["Kubernetes"],
+    "tags": ["kubernetes", "devops", "infra"]
   }
 ]
