@@ -12,6 +12,9 @@ Hoy la información sobre un error concreto está dispersa entre Stack Overflow 
 - **Tailwind CSS v4**
 - **Fuse.js** para búsqueda difusa client-side
 - Páginas de error pre-renderizadas estáticamente (`generateStaticParams`)
+- **Servidor MCP** (`mcp/`) — expone el catálogo a Claude/Cursor, ver [`mcp/README.md`](mcp/README.md)
+- **CLI** (`bin/error-atlas.js`) — `error-atlas search <texto>` / `error-atlas show <slug>`
+- **GitHub Action semanal** (`.github/workflows/related-issues.yml`) que busca issues/PRs reales nuevos y propone agregarlos vía PR — nunca automerge
 
 ## Cómo correrlo
 
@@ -35,24 +38,32 @@ src/
     search.ts               → índice Fuse.js
   data/
     errors.json             → catálogo curado (22 errores por ahora)
+mcp/
+  server.js                  → servidor MCP (search_errors, get_error)
+scripts/
+  find-related-issues.mjs    → bot semanal, ver .github/workflows/related-issues.yml
+bin/
+  error-atlas.js              → CLI
 ```
 
 ## Roadmap
 
 **Cerca (siguiente):**
-- [ ] Página de índice/categorías (por lenguaje, por framework, por tag)
-- [ ] Formulario de contribución: un PR con un nuevo `ErrorEntry` en `errors.json`, validado con un schema (zod) en CI
+- [ ] Formulario de contribución: validar un `ErrorEntry` nuevo con un schema (zod) en CI antes de mergear
 - [ ] Sección "¿Te sirvió esta solución?" con conteo simple (sin cuentas, localStorage) para ordenar soluciones por utilidad real reportada, no una sola vez
+- [ ] Publicar el CLI en npm (`npx error-atlas`) — hoy solo corre local
 
 **Integraciones con fuentes reales (no inventadas):**
-- [ ] Vincular cada error a Issues/PRs reales de GitHub que lo mencionan, vía la API pública de GitHub (`search/issues`), mostrando el link y el estado (abierto/cerrado/mergeado) tal cual están — nunca un resumen inventado del issue
-- [ ] Un job periódico (GitHub Actions) que busque nuevos issues abiertos en repos de referencia (`facebook/react`, `vercel/next.js`, `flutter/flutter`, `microsoft/TypeScript`) que calcen con errores ya catalogados, y proponga la actualización como un PR automático para revisión humana — nunca auto-mergeado
+- [x] Vincular cada error a Issues/PRs reales de GitHub que lo mencionan, vía la API pública de GitHub (`search/issues`), mostrando el link y el estado (abierto/cerrado/mergeado) tal cual están — nunca un resumen inventado del issue
+- [x] Un job periódico (GitHub Actions) que busca nuevos issues/PRs en repos de referencia y propone la actualización como PR para revisión humana — nunca auto-mergeado. Deliberadamente conservador: solo cuando hay un repo de referencia mapeado, para no meter ruido de matches irrelevantes.
 - [ ] Changelog watcher: cuando un framework saca una versión mayor, señalar en la ficha del error si sigue aplicando a esa versión o si fue resuelto upstream
+- [ ] Ampliar `TAG_TO_REPO` a más frameworks (hoy solo React, Next.js, TypeScript tienen repo de referencia mapeado)
 
 **Búsqueda y producto:**
 - [ ] Búsqueda semántica (embeddings) para encontrar errores por descripción del síntoma, no solo por el texto exacto del mensaje — complementaria a Fuse.js, no un reemplazo, y siempre mostrando por qué hizo match
 - [ ] API pública de solo lectura (`/api/errors`, `/api/errors/:slug`) para que otras herramientas puedan consultar el catálogo
-- [ ] CLI (`npx error-atlas "mensaje de error"`) que busca en el catálogo desde la terminal, útil para pegar directo el stderr de un build roto
+- [x] CLI (`error-atlas search`/`show`) que busca en el catálogo desde la terminal
+- [x] Servidor MCP para que Claude/Cursor consulten el catálogo directamente
 - [ ] Extensión de VS Code que detecta el error en la terminal integrada y sugiere la ficha correspondiente sin salir del editor
 
 **Contenido:**
