@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Buscar issues/PRs relacionados de la última semana
         run: node scripts/find-related-issues.mjs
