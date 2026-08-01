@@ -34,7 +34,7 @@ src/
     errors.ts               → acceso al catálogo
     search.ts               → índice Fuse.js
   data/
-    errors.json             → catálogo curado (13 errores por ahora)
+    errors.json             → catálogo curado (12 errores por ahora)
 ```
 
 ## Roadmap
