@@ -87,12 +87,13 @@ export default async function ErrorDetailPage({
         <h2 className="text-lg font-semibold mb-3">Tags</h2>
         <div className="flex flex-wrap gap-2">
           {error.tags.map((tag) => (
-            <span
+            <Link
               key={tag}
-              className="text-xs px-2 py-1 rounded-full border border-neutral-200 dark:border-neutral-800"
+              href={`/browse/${tag}`}
+              className="text-xs px-2 py-1 rounded-full border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
             >
               #{tag}
-            </span>
+            </Link>
           ))}
         </div>
       </section>

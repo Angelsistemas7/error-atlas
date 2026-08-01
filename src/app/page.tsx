@@ -1,3 +1,4 @@
+import Link from "next/link";
 import SearchBox from "@/components/SearchBox";
 import { getAllErrors } from "@/lib/errors";
 
@@ -17,7 +18,10 @@ export default function Home() {
       <SearchBox errors={errors} />
 
       <p className="text-xs text-neutral-400">
-        {errors.length} errores documentados hasta ahora — sumando cada semana.
+        {errors.length} errores documentados hasta ahora — sumando cada semana.{" "}
+        <Link href="/browse" className="text-blue-600 hover:underline">
+          Explorar todos →
+        </Link>
       </p>
     </main>
   );
