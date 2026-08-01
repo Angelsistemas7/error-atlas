@@ -1,0 +1,232 @@
+[
+  {
+    "slug": "react-hydration-mismatch",
+    "title": "Hydration failed because the server rendered HTML didn't match the client",
+    "summary": "El HTML que React renderizó en el servidor no coincide con lo que el cliente esperaba al hidratar.",
+    "description": "Ocurre en apps con SSR/SSG (Next.js, Remix) cuando el markup generado en el servidor difiere del que React produciría en el navegador durante la hidratación. React detecta la discrepancia y, según el caso, la corrige en el cliente (con un warning) o directamente falla.",
+    "causes": [
+      "Usar APIs no deterministas en el render (Date.now(), Math.random(), IDs generados en cada render) sin fijarlas con useEffect o una semilla estable.",
+      "Leer valores de window, localStorage o media queries directamente durante el render, que no existen en el servidor.",
+      "HTML inválido anidado (ej. un <div> dentro de un <p>) que el navegador reordena silenciosamente antes de que React lo vea.",
+      "Extensiones de navegador que inyectan atributos/nodos en el DOM antes de que React hidrate.",
+      "Contenido condicionado por locale/timezone que difiere entre el reloj del servidor y el del cliente."
+    ],
+    "solutions": [
+      { "title": "Mover el valor dinámico a useEffect + useState", "detail": "Renderiza un placeholder estable en el servidor y actualiza el valor real solo en el cliente, después del montaje." },
+      { "title": "Usar suppressHydrationWarning en el nodo puntual", "detail": "Solo cuando la diferencia es intencional y no afecta el contenido (ej. un timestamp \"hace 2 minutos\")." },
+      { "title": "Validar el HTML anidado", "detail": "Revisar que no haya elementos de bloque dentro de elementos que solo aceptan inline, un error común con <p>/<div>." },
+      { "title": "Reproducir en una ventana de incógnito", "detail": "Descarta extensiones de navegador como causa antes de seguir investigando el código." }
+    ],
+    "affected": ["Next.js 13+", "Next.js 14", "Next.js 15", "React 18", "React 19", "Remix"],
+    "tags": ["react", "nextjs", "ssr", "hydration"]
+  },
+  {
+    "slug": "cors-no-access-control-allow-origin",
+    "title": "CORS: No 'Access-Control-Allow-Origin' header is present on the requested resource",
+    "summary": "El navegador bloqueó una petición cross-origin porque el servidor no envió las cabeceras CORS necesarias.",
+    "description": "El navegador aplica la política de mismo origen: si tu frontend en un dominio/puerto llama a una API en otro, el navegador exige que el servidor confirme explícitamente (con cabeceras CORS) que permite esa petición. Sin esas cabeceras, el navegador descarta la respuesta antes de entregártela a tu JS, aunque la petición sí haya llegado al servidor.",
+    "causes": [
+      "El backend no tiene configurado ningún middleware/cabecera CORS.",
+      "El backend responde CORS solo para ciertos orígenes y el tuyo (localhost, un subdominio, un puerto distinto) no está en la lista.",
+      "Falla el preflight (OPTIONS) porque el servidor no lo maneja o lo bloquea con auth.",
+      "Se está usando una URL absoluta al backend en vez de un proxy/rewrite en desarrollo."
+    ],
+    "solutions": [
+      { "title": "Configurar CORS en el servidor", "detail": "Agregar el middleware CORS del framework (cors en Express, CORSMiddleware en FastAPI, etc.) y listar los orígenes permitidos." },
+      { "title": "Usar un proxy en desarrollo", "detail": "En Next.js, un rewrite en next.config.js hacia el backend evita CORS por completo en local, porque la petición sale del mismo origen." },
+      { "title": "Revisar el manejo de OPTIONS", "detail": "Confirmar que el servidor responde 200/204 a la petición preflight antes de que llegue el request real." },
+      { "title": "No usar '*' con credentials: true", "detail": "Si la petición manda cookies/auth, el origen debe ser explícito — el navegador rechaza '*' combinado con credenciales." }
+    ],
+    "affected": ["Express", "FastAPI", "Next.js API routes", "Nginx"],
+    "tags": ["cors", "http", "backend", "networking"]
+  },
+  {
+    "slug": "econnrefused",
+    "title": "Error: connect ECONNREFUSED 127.0.0.1:PORT",
+    "summary": "El proceso que intentaste contactar no está escuchando en esa dirección/puerto.",
+    "description": "El sistema operativo rechazó la conexión TCP porque no hay ningún proceso escuchando en ese host:puerto en el momento de la petición. Es distinto de un timeout: aquí el rechazo es inmediato y explícito.",
+    "causes": [
+      "El servicio (DB, API, dev server) todavía no arrancó cuando se hizo la petición.",
+      "El servicio se cayó o crasheó silenciosamente.",
+      "Se está apuntando al puerto equivocado (variable de entorno mal configurada).",
+      "El servicio escucha en 127.0.0.1 pero la petición viene de fuera de ese contenedor/máquina (dentro de Docker esto es muy común: hay que escuchar en 0.0.0.0)."
+    ],
+    "solutions": [
+      { "title": "Confirmar que el proceso está corriendo", "detail": "netstat/lsof sobre ese puerto, o revisar los logs del servicio objetivo." },
+      { "title": "Revisar el orden de arranque", "detail": "En docker-compose, usar depends_on + un healthcheck en vez de asumir que el servicio ya está listo." },
+      { "title": "Verificar la variable de entorno de la URL/puerto", "detail": "Un typo o un .env desactualizado es la causa más común en equipos con varios servicios." },
+      { "title": "Escuchar en 0.0.0.0 dentro de contenedores", "detail": "127.0.0.1 dentro de un contenedor solo acepta conexiones del propio contenedor." }
+    ],
+    "affected": ["Node.js", "Docker", "PostgreSQL", "Redis"],
+    "tags": ["networking", "docker", "backend"]
+  },
+  {
+    "slug": "cannot-read-properties-of-undefined",
+    "title": "TypeError: Cannot read properties of undefined (reading 'X')",
+    "summary": "Se intentó acceder a una propiedad de un valor que todavía es undefined en ese punto del código.",
+    "description": "El error más común de JavaScript/TypeScript en runtime: el objeto que esperabas tener ya poblado (respuesta de una API, un elemento de un array, un prop) es undefined cuando el código intenta leer una propiedad suya.",
+    "causes": [
+      "Renderizar antes de que los datos async (fetch, query) hayan resuelto.",
+      "Un array vacío o con menos elementos de los esperados (ej. data[0] cuando data está vacío).",
+      "Un prop opcional que no se pasó y se usa sin chequeo.",
+      "Un cambio en la forma de la respuesta de una API que el frontend no actualizó."
+    ],
+    "solutions": [
+      { "title": "Optional chaining", "detail": "objeto?.propiedad en vez de objeto.propiedad para no crashear cuando aún no existe." },
+      { "title": "Estado de carga explícito", "detail": "No renderizar el componente que depende de los datos hasta que loading sea false y los datos existan." },
+      { "title": "Valores por defecto", "detail": "Desestructurar con un default ({ items = [] }) para no depender de que el caller siempre mande el prop." },
+      { "title": "Validar la forma de la respuesta", "detail": "Con zod u otra librería de validación de runtime, para detectar cambios de contrato de API en desarrollo, no en producción." }
+    ],
+    "affected": ["JavaScript", "TypeScript", "React", "Node.js"],
+    "tags": ["javascript", "typescript", "runtime-error"]
+  },
+  {
+    "slug": "maximum-call-stack-size-exceeded",
+    "title": "RangeError: Maximum call stack size exceeded",
+    "summary": "Recursión sin condición de salida (o con una que nunca se cumple) agotó la pila de llamadas.",
+    "description": "JavaScript tiene un límite de profundidad de pila. Cuando una función se llama a sí misma (directa o indirectamente, a veces a través de varias funciones) sin llegar nunca a un caso base, el motor aborta con este error.",
+    "causes": [
+      "Una función recursiva sin caso base, o con un caso base que la entrada real nunca alcanza.",
+      "Dos objetos/estructuras que se referencian circularmente y se intentan serializar (JSON.stringify) o clonar sin manejo de ciclos.",
+      "Un setter/getter que se llama a sí mismo indirectamente (ej. un setter que reasigna la misma propiedad).",
+      "Un array o estructura de datos genuinamente enorme procesado con una función recursiva en vez de iterativa."
+    ],
+    "solutions": [
+      { "title": "Revisar el caso base", "detail": "Confirmar con un console.log o debugger que la condición de parada realmente se alcanza con los datos reales." },
+      { "title": "Detectar referencias circulares", "detail": "Usar JSON.stringify(obj, getCircularReplacer()) o una librería como flatted si la estructura puede ser cíclica." },
+      { "title": "Convertir a iterativo", "detail": "Para estructuras muy grandes, reemplazar la recursión por un bucle con una pila explícita evita el límite del motor." }
+    ],
+    "affected": ["JavaScript", "TypeScript", "Node.js"],
+    "tags": ["javascript", "recursion", "runtime-error"]
+  },
+  {
+    "slug": "module-not-found-cant-resolve",
+    "title": "Module not found: Can't resolve 'X'",
+    "summary": "El bundler no pudo encontrar el módulo importado, ni en node_modules ni como archivo local.",
+    "description": "Webpack/Turbopack/Vite no logró resolver un import. A diferencia de un error de tipos (TypeScript), este es un error de build/bundling: el archivo o paquete simplemente no está donde el import dice que está.",
+    "causes": [
+      "El paquete no está instalado (falta en package.json o no se corrió npm install).",
+      "Un error de mayúsculas/minúsculas en la ruta — funciona en Windows/Mac (case-insensitive) pero falla en Linux/CI (case-sensitive).",
+      "Un import relativo con la cantidad equivocada de '../'.",
+      "El paquete es solo de tipos (@types/x) pero el código intenta importar el runtime, o viceversa."
+    ],
+    "solutions": [
+      { "title": "Confirmar la instalación", "detail": "Revisar package.json y node_modules; correr npm install de nuevo si el lockfile cambió." },
+      { "title": "Verificar mayúsculas/minúsculas exactas", "detail": "Especialmente antes de deployar a un entorno Linux/CI si se desarrolla en Windows o Mac." },
+      { "title": "Revisar el alias/tsconfig paths", "detail": "Si el import usa un alias (@/lib/x), confirmar que está definido igual en tsconfig.json y en la config del bundler." }
+    ],
+    "affected": ["Webpack", "Next.js", "Vite", "Node.js"],
+    "tags": ["build", "bundler", "imports"]
+  },
+  {
+    "slug": "eaddrinuse",
+    "title": "Error: listen EADDRINUSE: address already in use :::PORT",
+    "summary": "Ya hay otro proceso escuchando en ese puerto.",
+    "description": "El sistema operativo no permite que dos procesos escuchen en el mismo puerto TCP a la vez. Muy común cuando un dev server anterior no se cerró bien, o cuando dos proyectos distintos están configurados con el mismo puerto por defecto.",
+    "causes": [
+      "Una instancia anterior del mismo servidor sigue corriendo en segundo plano (proceso zombie tras un crash o un Ctrl+C incompleto).",
+      "Dos proyectos distintos configurados con el mismo puerto por defecto (ej. 3000, 8080).",
+      "Un contenedor Docker antiguo sigue publicando ese puerto en el host."
+    ],
+    "solutions": [
+      { "title": "Encontrar y matar el proceso", "detail": "En Windows: netstat -ano | findstr :PUERTO seguido de taskkill /PID X /F. En Unix: lsof -i :PUERTO seguido de kill." },
+      { "title": "Cambiar el puerto del proyecto", "detail": "Vía variable de entorno (PORT=3001) si no es imprescindible usar el default." },
+      { "title": "Revisar contenedores colgados", "detail": "docker ps para confirmar que no hay un contenedor viejo publicando el mismo puerto." }
+    ],
+    "affected": ["Node.js", "Docker", "cualquier dev server"],
+    "tags": ["networking", "dev-server"]
+  },
+  {
+    "slug": "objects-are-not-valid-as-a-react-child",
+    "title": "Error: Objects are not valid as a React child",
+    "summary": "Se intentó renderizar directamente un objeto (o un array de objetos) en el JSX, en vez de un string/número/elemento.",
+    "description": "React solo sabe renderizar strings, números, elementos de React y arrays de esos tipos. Si el valor que llega a un {} del JSX es un objeto plano (por ejemplo, la respuesta cruda de una API), React no sabe cómo convertirlo a texto y lanza este error, generalmente listando las claves del objeto en el mensaje como pista.",
+    "causes": [
+      "Renderizar directamente la respuesta de una API sin acceder a la propiedad específica (ej. {user} en vez de {user.name}).",
+      "Un array de objetos de error (ej. errores de validación) renderizado sin mapear cada uno a texto.",
+      "Un objeto Date, Map o Set pasado directo al JSX sin convertir a string."
+    ],
+    "solutions": [
+      { "title": "Acceder a la propiedad correcta", "detail": "Revisar el mensaje de error (lista las claves del objeto) y renderizar el campo específico, no el objeto completo." },
+      { "title": "Mapear arrays de objetos", "detail": "array.map(item => <li key={item.id}>{item.campo}</li>) en vez de {array}." },
+      { "title": "Convertir explícitamente a string", "detail": "JSON.stringify(obj) solo como último recurso de debugging, no como solución de UI final." }
+    ],
+    "affected": ["React", "Next.js"],
+    "tags": ["react", "jsx", "runtime-error"]
+  },
+  {
+    "slug": "unexpected-token-in-json",
+    "title": "SyntaxError: Unexpected token < in JSON at position 0",
+    "summary": "Se intentó parsear como JSON una respuesta que en realidad es HTML.",
+    "description": "Casi siempre significa que un fetch a una API devolvió una página de error HTML (un 404, un 500, o una página de login) en vez del JSON esperado, y el código llamó a .json() sobre esa respuesta sin verificar antes el status.",
+    "causes": [
+      "La ruta de la API está mal escrita y golpea una página 404 HTML del framework.",
+      "El servidor devolvió un 500 con una página de error HTML en vez de JSON.",
+      "Un proxy/gateway intermedio devolvió una página de login o de mantenimiento.",
+      "Se está llamando a la URL del frontend en vez de la del backend por un error de configuración de entorno."
+    ],
+    "solutions": [
+      { "title": "Revisar response.ok antes de .json()", "detail": "if (!response.ok) { manejar el error explícitamente } antes de intentar parsear." },
+      { "title": "Loguear el texto crudo primero", "detail": "response.text() para ver qué llegó realmente, antes de asumir que es JSON." },
+      { "title": "Confirmar la URL de la API en cada entorno", "detail": "Un .env apuntando al entorno equivocado es la causa más común en producción." }
+    ],
+    "affected": ["JavaScript", "fetch API", "REST APIs"],
+    "tags": ["javascript", "api", "networking"]
+  },
+  {
+    "slug": "npm-peer-dependency-conflict",
+    "title": "npm ERR! Could not resolve dependency: peer dependency conflict",
+    "summary": "Dos paquetes instalados requieren versiones incompatibles de una misma dependencia peer.",
+    "description": "npm (desde la v7) valida peer dependencies de forma estricta. Si el paquete A necesita react@^18 como peer y el paquete B necesita react@^19, npm se niega a instalar en vez de dejar un árbol inconsistente.",
+    "causes": [
+      "Un paquete todavía no publicó soporte para la major version más nueva de su peer dependency.",
+      "Se actualizó una dependencia principal (ej. React 19) antes de que el resto del ecosistema del proyecto la soportara.",
+      "Un paquete transitivo (dependencia de una dependencia) fija una versión vieja incompatible."
+    ],
+    "solutions": [
+      { "title": "Revisar qué paquete exige qué versión", "detail": "El log de error de npm lista el árbol completo del conflicto — identifica cuál paquete es el desactualizado." },
+      { "title": "Actualizar el paquete conflictivo", "detail": "La solución real, si existe una versión más nueva que ya soporte la peer dependency actual." },
+      { "title": "--legacy-peer-deps como último recurso", "detail": "Ignora el chequeo estricto, pero puede dejar un árbol de dependencias que funcione mal en runtime — usar solo temporalmente." }
+    ],
+    "affected": ["npm 7+", "React 19", "monorepos"],
+    "tags": ["npm", "dependencies", "build"]
+  },
+  {
+    "slug": "segmentation-fault-core-dumped",
+    "title": "Segmentation fault (core dumped)",
+    "summary": "El programa intentó acceder a una zona de memoria que no le pertenece.",
+    "description": "Error de bajo nivel en programas compilados (C/C++, o extensiones nativas de Python/Node) donde el proceso accedió a memoria fuera de lo que el sistema operativo le asignó. El SO mata el proceso inmediatamente; no hay stack trace de JavaScript/Python que te diga la línea exacta sin herramientas adicionales.",
+    "causes": [
+      "Desreferenciar un puntero nulo o ya liberado (use-after-free).",
+      "Un desbordamiento de buffer que corrompe memoria adyacente.",
+      "Una extensión nativa (ej. un binding de Python a una librería en C) incompatible con la versión del intérprete.",
+      "Recursión sin límite que desborda la pila del sistema (distinto del RangeError de JS, esto es a nivel de SO)."
+    ],
+    "solutions": [
+      { "title": "Reproducir con un debugger nativo", "detail": "gdb (Linux) o lldb (Mac) con el core dump para obtener el stack trace real en C/C++." },
+      { "title": "Revisar versiones de extensiones nativas", "detail": "Confirmar que los bindings nativos (node-gyp, extensiones de Python) coinciden con la versión del runtime." },
+      { "title": "Compilar con sanitizers en desarrollo", "detail": "AddressSanitizer (-fsanitize=address) detecta el acceso inválido mucho antes que un crash silencioso en producción." }
+    ],
+    "affected": ["C", "C++", "Python (extensiones nativas)", "Node.js (addons nativos)"],
+    "tags": ["low-level", "memory", "crash"]
+  },
+  {
+    "slug": "modulenotfounderror-python",
+    "title": "ModuleNotFoundError: No module named 'X'",
+    "summary": "Python no encontró el módulo en ninguna ruta de su sys.path actual.",
+    "description": "El intérprete de Python busca el módulo importado en una lista concreta de directorios (sys.path). Si el paquete no está instalado en el entorno activo, o el archivo local no está donde el import espera, falla con este error.",
+    "causes": [
+      "El paquete no está instalado en el entorno virtual actualmente activo (muy común: instalado en un venv distinto al que corre el script).",
+      "Un import relativo mal formado al ejecutar el archivo directamente en vez de como parte del paquete.",
+      "Falta un __init__.py en una carpeta que debía ser un paquete Python.",
+      "El nombre del paquete a instalar (pip install) es distinto al nombre del módulo a importar (ej. pip install pillow, import PIL)."
+    ],
+    "solutions": [
+      { "title": "Confirmar el entorno virtual activo", "detail": "which python / where python y pip list para verificar que el paquete está en el entorno correcto." },
+      { "title": "Ejecutar como módulo, no como script suelto", "detail": "python -m paquete.script en vez de python script.py, para que los imports relativos funcionen." },
+      { "title": "Revisar el nombre real del paquete en PyPI", "detail": "El nombre de instalación y el nombre de import no siempre coinciden." }
+    ],
+    "affected": ["Python 3", "pip", "virtualenv/venv"],
+    "tags": ["python", "imports", "dependencies"]
+  }
+]
